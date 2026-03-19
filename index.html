@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Sistema de controle de vendas e boletos para Vidal Beauty - O Boticário e Eudora.">
+  <title>Controle de Vendas — Vidal Beauty</title>
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  
+  <!-- Estilos Externos -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-top">
+      <div class="brand">
+        <h1>Controle de Vendas</h1>
+        <small class="brand-sub">O Boticário · Eudora</small>
+      </div>
+      <div class="header-actions">
+        <button class="btn-icon-alt" id="btnSync" title="Sincronizar">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+        </button>
+        <button class="btn-icon-alt" id="btnSettings" title="Configurações">
+          <i class="fa-solid fa-gear"></i>
+        </button>
+      </div>
+    </div>
+    <nav class="month-scroll-wrap" id="monthScroll" aria-label="Seletor de Meses"></nav>
+  </header>
+
+  <main>
+    <!-- RESUMO FINANCEIRO -->
+    <section class="summary-section" aria-label="Resumo Financeiro">
+      <div class="summary-grid">
+        <div class="summary-card total">
+          <span class="summary-label">Custo (Boleto)</span>
+          <span class="summary-value" id="summaryTotal">R$ 0,00</span>
+        </div>
+        <div class="summary-card sale">
+          <span class="summary-label">Venda (Clientes)</span>
+          <span class="summary-value" id="summarySales">R$ 0,00</span>
+        </div>
+        <div class="summary-card received">
+          <span class="summary-label">Recebido</span>
+          <span class="summary-value" id="summaryReceived">R$ 0,00</span>
+        </div>
+        <div class="summary-card pending">
+          <span class="summary-label">Pend. Receber</span>
+          <span class="summary-value" id="summaryPending">R$ 0,00</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- LISTAGEM DE BOLETOS -->
+    <section class="list-section">
+      <div class="section-header">
+        <h2 class="section-title">Boletos</h2>
+        <span class="boleto-count" id="boletoCount" aria-label="Quantidade de boletos">0</span>
+      </div>
+      
+      <!-- BUSCA POR CLIENTE -->
+      <div class="search-container">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input type="text" id="inputSearch" placeholder="Buscar por nome do cliente..." aria-label="Buscar por cliente">
+          <button id="btnClearSearch" class="btn-clear-search" style="display:none" title="Limpar busca">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      <!-- BOTÃO DE FILTRO POR CLIENTE -->
+      <div class="main-filter-trigger-wrapper">
+        <button class="btn-filter-trigger" id="btnOpenFilterModal">
+          <i class="fa-solid fa-user-tag"></i> Filtrar Clientes
+          <span id="activeFilterBadge" class="filter-badge" style="display:none">1</span>
+        </button>
+      </div>
+
+      <div id="boletoList" class="boleto-container">
+        <!-- Cards serão injetados via JS -->
+      </div>
+    </section>
+  </main>
+
+  <!-- BOTÃO ADICIONAR (FAB) -->
+  <button class="fab" id="fabAdd" aria-label="Adicionar novo boleto">
+    <i class="fa-solid fa-plus"></i>
+  </button>
+
+  <!-- MODAL: FORMULÁRIO DE BOLETO -->
+  <div class="modal-overlay" id="modalOverlay" role="dialog" aria-labelledby="modalTitle" aria-hidden="true">
+    <div class="modal">
+      <div class="modal-handle" aria-hidden="true"></div>
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalTitle">Novo Boleto</h2>
+        <button class="btn-close" id="btnCloseModal" aria-label="Fechar modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="boletoForm">
+          <input type="hidden" id="editId">
+          <input type="hidden" id="editGroupId">
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="fDia" class="form-label">Dia do Vencimento</label>
+              <input class="form-input" type="number" id="fDia" name="vencimento" placeholder="Ex: 06" min="1" max="31" required>
+            </div>
+            <div class="form-group">
+              <label for="fValor" class="form-label">Valor do Boleto</label>
+              <input class="form-input" type="number" id="fValor" name="valor" placeholder="0,00" step="0.01" min="0" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="fNome" class="form-label">Nome do Boleto</label>
+            <input class="form-input" type="text" id="fNome" name="nome" placeholder="Ex: Boleto Valéria" list="clientsList" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="fParcelaAtual" class="form-label">Nº desta Parcela</label>
+              <input class="form-input" type="number" id="fParcelaAtual" name="parcela_atual" placeholder="Ex: 1" min="1" required>
+            </div>
+            <div class="form-group">
+              <label for="fParcelaTotal" class="form-label">Total de Parcelas</label>
+              <input class="form-input" type="number" id="fParcelaTotal" name="parcela_total" placeholder="Ex: 3" min="1" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="fConta" class="form-label">Conta Destino</label>
+              <select class="form-select" id="fConta" name="conta">
+                <option value="Deise">Deise</option>
+                <option value="Aragonez">Aragonez</option>
+                <option value="Outra">Outra</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="fMes" class="form-label">Mês desta Parcela</label>
+              <select class="form-select" id="fMes" name="mes"></select>
+            </div>
+          </div>
+
+          <!-- Preview de Auto-geração -->
+          <div class="auto-info" id="autoInfo" style="display:none">
+            <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+            <span id="autoInfoText"></span>
+          </div>
+
+          <!-- Sugestões de Clientes (Chips) -->
+          <div class="quick-clients-section" id="quickClientsContainer" style="display:none">
+            <span class="itens-title"><i class="fa-solid fa-users"></i> Sugestões de Clientes</span>
+            <div class="quick-clients-list" id="quickClientsList"></div>
+          </div>
+
+          <!-- Sessão de Itens -->
+          <div class="itens-section">
+            <div class="itens-header">
+              <span class="itens-title"><i class="fa-solid fa-list-ul"></i> Itens / Clientes</span>
+              <button type="button" class="btn-add-item" id="btnAddItem">
+                <i class="fa-solid fa-plus"></i> Adicionar Item
+              </button>
+            </div>
+            <div id="itensContainer"></div>
+          </div>
+
+          <button type="submit" class="btn-submit" id="btnSalvar">Salvar Boleto</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- DATALIST PARA AUTOCOMPLETAR CLIENTES -->
+  <datalist id="clientsList"></datalist>
+
+  <!-- MODAL: FILTRO POR CLIENTE (POPUP) -->
+  <div class="modal-overlay" id="filterModalOverlay" role="dialog" aria-labelledby="filterModalTitle" aria-hidden="true">
+    <div class="modal">
+      <div class="modal-handle" aria-hidden="true"></div>
+      <div class="modal-header">
+        <h2 class="modal-title" id="filterModalTitle">Filtrar por Cliente</h2>
+        <button class="btn-close" id="btnCloseFilterModal" aria-label="Fechar modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="settings-desc">Selecione um cliente para ver apenas os boletos dele.</p>
+        <div class="quick-clients-list" id="mainFilterPopList"></div>
+        
+        <div class="settings-divider"></div>
+        <button class="btn-danger-outline" id="btnClearAllFilters">Limpar Filtros</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CONFIGURAÇÕES E SINCRONIZAÇÃO -->
+  <div class="modal-overlay" id="settingsOverlay" role="dialog" aria-labelledby="settingsTitle" aria-hidden="true">
+    <div class="modal">
+      <div class="modal-handle" aria-hidden="true"></div>
+      <div class="modal-header">
+        <h2 class="modal-title" id="settingsTitle">Configurações</h2>
+        <button class="btn-close" id="btnCloseSettings" aria-label="Fechar modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-section">
+          <h3 class="settings-subtitle"><i class="fa-solid fa-cloud"></i> Sincronização na Nuvem</h3>
+          <p class="settings-desc">Para sincronizar entre celular e computador, você precisa de um ID do Pantry (getpantry.cloud) ou usar Firebase.</p>
+          <div class="form-group">
+            <label for="pantryId" class="form-label">Chave de Sincronização (Pantry ID)</label>
+            <input class="form-input" type="text" id="pantryId" placeholder="Insira seu ID aqui">
+          </div>
+          <button class="btn-submit" id="btnSavePantry">Salvar e Sincronizar</button>
+        </div>
+
+        <div class="settings-divider"></div>
+
+        <div class="settings-section">
+          <h3 class="settings-subtitle"><i class="fa-solid fa-file-export"></i> Backup Manual</h3>
+          <p class="settings-desc">Exporte seus dados para um arquivo ou importe de outro dispositivo.</p>
+          <div class="settings-actions">
+            <button class="btn-secondary" id="btnExport"><i class="fa-solid fa-download"></i> Exportar JSON</button>
+            <button class="btn-secondary" id="btnImport"><i class="fa-solid fa-upload"></i> Importar JSON</button>
+            <input type="file" id="importFile" style="display:none" accept=".json">
+          </div>
+        </div>
+
+        <div class="settings-divider"></div>
+
+        <div class="settings-section">
+          <h3 class="settings-subtitle text-danger"><i class="fa-solid fa-triangle-exclamation"></i> Zona de Perigo</h3>
+          <button class="btn-danger-outline" id="btnResetAll">Resetar Todos os Dados</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CONFIRMAÇÃO DE EXCLUSÃO -->
+  <div class="confirm-overlay" id="confirmOverlay" role="alertdialog" aria-labelledby="confirmTitle" aria-describedby="confirmMsg" aria-hidden="true">
+    <div class="confirm-box">
+      <div class="confirm-icon" aria-hidden="true">🗑️</div>
+      <h2 class="confirm-title" id="confirmTitle">Excluir Boleto</h2>
+      <p class="confirm-msg" id="confirmMsg"></p>
+      <div class="confirm-actions" id="confirmActions">
+        <!-- Botões injetados via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- NOTIFICAÇÕES (TOAST) -->
+  <output class="toast" id="toast" aria-live="polite"></output>
+
+  <!-- Scripts -->
+  <script src="main.js" defer></script>
+</body>
+</html>
