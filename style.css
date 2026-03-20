@@ -683,3 +683,38 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.02em; }
   .btn-delete:hover { background: var(--red-bg); }
   .fab:hover { transform: scale(1.05); filter: brightness(1.1); }
 }
+
+/* ── SYNC STYLES ── */
+.sync-input-group {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.sync-input-group .form-input {
+    flex: 1;
+    margin-top: 0;
+}
+
+.btn-icon-copy {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-icon-copy:active {
+    transform: scale(0.92);
+    background: var(--primary-light);
+}
+
+.settings-subtitle.text-danger {
+    color: #ef4444;
+}

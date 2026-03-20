@@ -6,7 +6,8 @@
 // ── CONFIG & STATE ──
 const CONFIG = {
   dbKey: 'bella_boletos_v2',
-  pantryKey: 'bella_pantry_id', // Chave para armazenar o ID do Pantry no localStorage
+  pantryKey: 'bella_pantry_id', 
+  defaultPantryId: 'vidal-beauty-sync-v2-automatic', // ID estável para sincronização automática
   months: [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
@@ -57,10 +58,6 @@ const loadData = () => {
   try {
     const saved = localStorage.getItem(CONFIG.dbKey);
     state.boletos = saved ? JSON.parse(saved) : [];
-    
-    // Se tivermos um ID do Pantry, tentamos sincronizar logo no início
-    const pId = localStorage.getItem(CONFIG.pantryKey);
-    if (pId) syncWithCloud(pId, false);
   } catch (err) {
     console.error('Erro ao carregar dados:', err);
     state.boletos = [];
@@ -70,9 +67,9 @@ const loadData = () => {
 const saveData = () => {
   localStorage.setItem(CONFIG.dbKey, JSON.stringify(state.boletos));
   
-  // Se houver ID do Pantry, envia para nuvem automaticamente ao salvar
-  const pId = localStorage.getItem(CONFIG.pantryKey);
-  if (pId) syncWithCloud(pId, true);
+  // Sincronização automática 100% (Sem necessidade do usuário configurar)
+  const pId = localStorage.getItem(CONFIG.pantryKey) || CONFIG.defaultPantryId;
+  syncWithCloud(pId, true);
 
   // Atualiza a lista de sugestões de nomes de clientes
   updateClientsDatalist();
@@ -219,25 +216,36 @@ const syncWithCloud = async (pantryId, push = true) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ boletos: state.boletos, lastUpdate: Date.now() })
       });
-      console.log('Dados sincronizados com a nuvem (Push)');
+      console.log('☁️ Push: Dados enviados para a nuvem');
     } else {
       // Puxar dados da nuvem para local
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         if (data.boletos && Array.isArray(data.boletos)) {
-          // Só substitui se os dados na nuvem forem diferentes ou mais recentes
-          // Para simplificar, vamos substituir sempre que houver dados válidos
           state.boletos = data.boletos;
           localStorage.setItem(CONFIG.dbKey, JSON.stringify(state.boletos));
-          renderAll();
-          console.log('Dados sincronizados da nuvem (Pull)');
+          console.log('☁️ Pull: Dados recebidos da nuvem');
+          return true;
         }
       }
     }
   } catch (err) {
     console.error('Erro na sincronização:', err);
+    return false;
   }
+  return false;
+};
+
+const copySyncId = () => {
+  const idInput = document.getElementById('pantryId');
+  if (!idInput || !idInput.value) {
+    showToast('⚠️ Insira um ID primeiro.');
+    return;
+  }
+  navigator.clipboard.writeText(idInput.value).then(() => {
+    showToast('📋 ID copiado! Envie para o outro dispositivo.');
+  });
 };
 
 // ── UI COMPONENTS ──
@@ -486,7 +494,7 @@ const openFilterModal = () => {
 };
 
 const openSettings = () => {
-  const pId = localStorage.getItem(CONFIG.pantryKey) || '';
+  const pId = localStorage.getItem(CONFIG.pantryKey) || CONFIG.defaultPantryId;
   document.getElementById('pantryId').value = pId;
   document.getElementById('settingsOverlay').classList.add('open');
 };
@@ -894,12 +902,23 @@ const seedData = (force = false) => {
 
 // ── INITIALIZATION ──
 
-const init = () => {
+const init = async () => {
+  // 1. Carrega localmente primeiro
   loadData();
   
-  // CORREÇÃO: Forçar seed se os dados estiverem visivelmente incompletos (sem valor_venda em nenhum item)
+  // 2. Sincronização Automática Total
+  // Usa o ID configurado ou o ID estável padrão
+  const pId = localStorage.getItem(CONFIG.pantryKey) || CONFIG.defaultPantryId;
+  
+  const pulled = await syncWithCloud(pId, false);
+  if (pulled) {
+    console.log('✨ Inicialização: Dados sincronizados automaticamente.');
+  }
+
+  // 3. Verifica se precisa de Seed (apenas se estiver vazio após sync)
   const needsFix = state.boletos.length > 0 && 
-                   !state.boletos.some(b => (b.itens || []).some(it => it.valor_venda > 0));
+                   (!state.boletos.some(b => (b.itens || []).length > 0) || 
+                    !state.boletos.some(b => (b.itens || []).some(it => it.valor_venda > 0)));
 
   if (!localStorage.getItem(CONFIG.dbKey) || state.boletos.length === 0 || needsFix) { 
     state.boletos = []; 
@@ -925,14 +944,13 @@ const init = () => {
 
   // Novos Listeners de Config/Sync
   document.getElementById('btnSettings').onclick = openSettings;
-  document.getElementById('btnSync').onclick = () => {
-    const pId = localStorage.getItem(CONFIG.pantryKey);
-    if (pId) {
-      syncWithCloud(pId, false).then(() => showToast('🔄 Sincronizado com a nuvem!'));
-    } else {
-      showToast('💡 Configure o ID da nuvem primeiro nas engrenagens.');
-      openSettings();
-    }
+  // Listener de Sincronização Manual (agora no menu configurações também)
+  document.getElementById('btnSync').onclick = async () => {
+    const pIdSync = localStorage.getItem(CONFIG.pantryKey) || CONFIG.defaultPantryId;
+    showToast('☁️ Sincronizando...');
+    await syncWithCloud(pIdSync, false); // Puxa o mais recente
+    renderAll();
+    showToast('🔄 Sincronizado com a nuvem!');
   };
   document.getElementById('btnCloseSettings').onclick = closeModal;
   document.getElementById('btnExport').onclick = exportData;
@@ -940,6 +958,7 @@ const init = () => {
   document.getElementById('importFile').onchange = importData;
   document.getElementById('btnResetAll').onclick = resetAllData;
   document.getElementById('btnSavePantry').onclick = savePantryConfig;
+  document.getElementById('btnCopySyncId').onclick = copySyncId;
 
   // Listeners do Filtro (Pop-up)
   document.getElementById('btnOpenFilterModal').onclick = openFilterModal;

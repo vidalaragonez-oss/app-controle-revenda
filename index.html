@@ -215,13 +215,18 @@
       </div>
       <div class="modal-body">
         <div class="settings-section">
-          <h3 class="settings-subtitle"><i class="fa-solid fa-cloud"></i> Sincronização na Nuvem</h3>
-          <p class="settings-desc">Para sincronizar entre celular e computador, você precisa de um ID do Pantry (getpantry.cloud) ou usar Firebase.</p>
-          <div class="form-group">
-            <label for="pantryId" class="form-label">Chave de Sincronização (Pantry ID)</label>
-            <input class="form-input" type="text" id="pantryId" placeholder="Insira seu ID aqui">
+          <h3 class="settings-subtitle"><i class="fa-solid fa-cloud"></i> Sincronização Inteligente</h3>
+          <p class="settings-desc">Sua conta já está conectada. Todos os seus dados são sincronizados automaticamente em todos os seus dispositivos.</p>
+          <div class="form-group" style="opacity: 0.7; font-size: 0.8em; margin-top: 15px;">
+            <label for="pantryId" class="form-label">Chave Servidora (Uso Avançado)</label>
+            <div class="sync-input-group">
+              <input class="form-input" type="text" id="pantryId" readonly style="background: var(--bg-body); cursor: default;">
+              <button class="btn-icon-copy" id="btnCopySyncId" title="Copiar Chave">
+                <i class="fa-solid fa-copy"></i>
+              </button>
+            </div>
           </div>
-          <button class="btn-submit" id="btnSavePantry">Salvar e Sincronizar</button>
+          <button class="btn-submit" id="btnSync">Sincronizar Manualmente Agora</button>
         </div>
 
         <div class="settings-divider"></div>
