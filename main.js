@@ -86,6 +86,7 @@ const updateClientsDatalist = () => {
 
   const names = new Set();
   state.boletos.forEach(b => {
+    if (b.deleted) return; // Ignora excluídos
     (b.itens || []).forEach(it => {
       if (it.cliente && it.cliente.trim()) {
         names.add(it.cliente.trim());
@@ -209,32 +210,58 @@ const syncWithCloud = async (pantryId, push = true) => {
   const url = `https://getpantry.cloud/apiv1/pantry/${pantryId}/basket/boletos`;
 
   try {
-    if (push) {
-      // Enviar dados locais para a nuvem
+    // 1. Sempre Puxar primeiro para mesclar (evita sobrescrever dados de outros aparelhos)
+    const res = await fetch(url);
+    let remoteBoletos = [];
+    if (res.ok) {
+      const data = await res.json();
+      remoteBoletos = (data.boletos && Array.isArray(data.boletos)) ? data.boletos : [];
+    }
+
+    // 2. Mesclagem Inteligente (Smart Merge)
+    const merged = smartMerge(state.boletos, remoteBoletos);
+    const hasChanges = JSON.stringify(merged) !== JSON.stringify(state.boletos);
+    
+    state.boletos = merged;
+    localStorage.setItem(CONFIG.dbKey, JSON.stringify(state.boletos));
+
+    // 3. Se for um PUSH ou se houve mudanças na mesclagem, envia para a nuvem
+    if (push || hasChanges) {
       await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ boletos: state.boletos, lastUpdate: Date.now() })
       });
-      console.log('☁️ Push: Dados enviados para a nuvem');
+      console.log('☁️ Sync: Dados sincronizados e mesclados com a nuvem');
     } else {
-      // Puxar dados da nuvem para local
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.boletos && Array.isArray(data.boletos)) {
-          state.boletos = data.boletos;
-          localStorage.setItem(CONFIG.dbKey, JSON.stringify(state.boletos));
-          console.log('☁️ Pull: Dados recebidos da nuvem');
-          return true;
-        }
-      }
+      console.log('☁️ Sync: Dados locais já estão atualizados');
     }
+    
+    return true;
   } catch (err) {
     console.error('Erro na sincronização:', err);
     return false;
   }
-  return false;
+};
+
+/**
+ * Mescla duas listas de boletos baseando-se no ID e na data de atualização
+ */
+const smartMerge = (local, remote) => {
+  const map = new Map();
+
+  // Função auxiliar para comparar e manter o mais novo
+  const mergeItem = (item) => {
+    const existing = map.get(item.id);
+    if (!existing || (item.updatedAt || 0) > (existing.updatedAt || 0)) {
+      map.set(item.id, item);
+    }
+  };
+
+  remote.forEach(mergeItem);
+  local.forEach(mergeItem);
+
+  return Array.from(map.values());
 };
 
 const copySyncId = () => {
@@ -374,6 +401,9 @@ const renderAll = () => {
   
   const filtered = state.boletos
     .filter(b => {
+      // Ignora boletos excluídos logicamente
+      if (b.deleted) return false;
+
       // Se houver busca, ignora o filtro de mês para mostrar resultados globais
       const matchesMonth = query || b.mes === state.currentMonth;
       if (!matchesMonth) return false;
@@ -461,6 +491,7 @@ const togglePaymentStatus = (id) => {
   const b = state.boletos.find(x => x.id === id);
   if (!b) return;
   b.pago = !b.pago;
+  b.updatedAt = Date.now(); // Marca atualização
   saveData();
   renderAll();
   showToast(b.pago ? '✅ Pago com sucesso!' : '↩️ Status alterado para pendente');
@@ -577,7 +608,8 @@ const saveBoleto = (e) => {
         ...state.boletos[idx],
         ...data,
         parcelaAtual: String(data.parcelaAtual),
-        parcelaTotal: String(data.parcelaTotal)
+        parcelaTotal: String(data.parcelaTotal),
+        updatedAt: Date.now() // Marca atualização
       };
       delete state.boletos[idx].editId;
       delete state.boletos[idx].editGroupId;
@@ -586,6 +618,7 @@ const saveBoleto = (e) => {
   } else {
     // Geração automática de parcelas
     const groupId = generateUID();
+    const now = Date.now();
     for (let p = data.parcelaAtual; p <= data.parcelaTotal; p++) {
       const targetMes = (data.mes + (p - data.parcelaAtual)) % 12;
       const itemsForP = data.itens.map(it => ({
@@ -605,7 +638,8 @@ const saveBoleto = (e) => {
         parcelaTotal: String(data.parcelaTotal),
         conta: data.conta,
         pago: false,
-        itens: itemsForP
+        itens: itemsForP,
+        updatedAt: now // Marca criação
       });
     }
     showToast(data.parcelaTotal > data.parcelaAtual ? '🌸 Parcelas geradas com sucesso!' : '🌸 Boleto adicionado!');
@@ -676,12 +710,20 @@ const confirmActionDelete = (deleteAllGroup) => {
   const b = state.boletos.find(x => x.id === state.pendingDeleteId);
   if (!b) return;
 
+  const now = Date.now();
   if (deleteAllGroup && b.groupId) {
-    const originalCount = state.boletos.length;
-    state.boletos = state.boletos.filter(x => x.groupId !== b.groupId);
-    showToast(`🗑️ ${originalCount - state.boletos.length} parcelas removidas`);
+    let count = 0;
+    state.boletos.forEach(x => {
+      if (x.groupId === b.groupId && !x.deleted) {
+        x.deleted = true;
+        x.updatedAt = now;
+        count++;
+      }
+    });
+    showToast(`🗑️ ${count} parcelas removidas`);
   } else {
-    state.boletos = state.boletos.filter(x => x.id !== state.pendingDeleteId);
+    b.deleted = true;
+    b.updatedAt = now;
     showToast('🗑️ Boleto removido');
   }
 
@@ -772,7 +814,8 @@ const seedData = (force = false) => {
     groupId: gId || generateUID(),
     dia, mes, valor, nome,
     parcelaAtual: String(pA), parcelaTotal: String(pT),
-    conta, pago: !!pago, itens
+    conta, pago: !!pago, itens,
+    updatedAt: 1640995200000 // Data fixa antiga para o seed não sobrescrever dados reais
   });
 
   const G = {
@@ -915,12 +958,11 @@ const init = async () => {
     console.log('✨ Inicialização: Dados sincronizados automaticamente.');
   }
 
-  // 3. Verifica se precisa de Seed (apenas se estiver vazio após sync)
-  const needsFix = state.boletos.length > 0 && 
-                   (!state.boletos.some(b => (b.itens || []).length > 0) || 
-                    !state.boletos.some(b => (b.itens || []).some(it => it.valor_venda > 0)));
+  // 3. Verifica se precisa de Seed (apenas se estiver VAZIO total)
+  const isEssentiallyEmpty = state.boletos.length === 0 || 
+                             (!state.boletos.some(b => (b.itens || []).length > 0) && state.boletos.length < 5);
 
-  if (!localStorage.getItem(CONFIG.dbKey) || state.boletos.length === 0 || needsFix) { 
+  if (!localStorage.getItem(CONFIG.dbKey) && isEssentiallyEmpty) { 
     state.boletos = []; 
     seedData(true); 
   }
@@ -931,6 +973,19 @@ const init = async () => {
   renderMonthSelector();
   renderAll();
   updateClientsDatalist();
+
+  // 4. Sincronização Periódica e por Visibilidade
+  setInterval(async () => {
+    const activePId = localStorage.getItem(CONFIG.pantryKey) || CONFIG.defaultPantryId;
+    if (await syncWithCloud(activePId, false)) renderAll();
+  }, 60000); // A cada 1 minuto
+
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible') {
+      const activePId = localStorage.getItem(CONFIG.pantryKey) || CONFIG.defaultPantryId;
+      if (await syncWithCloud(activePId, false)) renderAll();
+    }
+  });
 
   // Event Listeners
   document.getElementById('boletoList').addEventListener('click', handleBoletoAction);
