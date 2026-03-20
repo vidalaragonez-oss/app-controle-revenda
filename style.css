@@ -702,7 +702,7 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.02em; }
     border-radius: 12px;
     border: 1px solid var(--border);
     background: var(--surface);
-    color: var(--primary);
+    color: var(--accent-dark);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -712,7 +712,7 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.02em; }
 
 .btn-icon-copy:active {
     transform: scale(0.92);
-    background: var(--primary-light);
+    background: var(--accent-light);
 }
 
 .settings-subtitle.text-danger {

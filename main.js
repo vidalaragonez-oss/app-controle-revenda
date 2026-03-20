@@ -945,19 +945,22 @@ const init = async () => {
   // Novos Listeners de Config/Sync
   document.getElementById('btnSettings').onclick = openSettings;
   // Listener de Sincronização Manual (agora no menu configurações também)
-  document.getElementById('btnSync').onclick = async () => {
-    const pIdSync = localStorage.getItem(CONFIG.pantryKey) || CONFIG.defaultPantryId;
-    showToast('☁️ Sincronizando...');
-    await syncWithCloud(pIdSync, false); // Puxa o mais recente
-    renderAll();
-    showToast('🔄 Sincronizado com a nuvem!');
-  };
+  // Define o listener para ambos os botões de sync (um na header e um nas configs)
+  document.querySelectorAll('#btnSync, #btnSyncManual').forEach(btn => {
+    btn.onclick = async () => {
+      const pIdSync = localStorage.getItem(CONFIG.pantryKey) || CONFIG.defaultPantryId;
+      showToast('☁️ Sincronizando...');
+      await syncWithCloud(pIdSync, false); // Puxa o mais recente
+      renderAll();
+      showToast('🔄 Sincronizado com a nuvem!');
+    };
+  });
   document.getElementById('btnCloseSettings').onclick = closeModal;
   document.getElementById('btnExport').onclick = exportData;
   document.getElementById('btnImport').onclick = () => document.getElementById('importFile').click();
   document.getElementById('importFile').onchange = importData;
   document.getElementById('btnResetAll').onclick = resetAllData;
-  document.getElementById('btnSavePantry').onclick = savePantryConfig;
+  // document.getElementById('btnSavePantry').onclick = savePantryConfig; // Botão removido na versão automática
   document.getElementById('btnCopySyncId').onclick = copySyncId;
 
   // Listeners do Filtro (Pop-up)
