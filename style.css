@@ -177,7 +177,7 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.02em; }
 
 .month-btn {
   flex-shrink: 0;
-  min-height: 40px; /* Target de toque */
+  min-height: 44px; /* Target de toque otimizado (Apple 44px) */
   padding: 0 18px;
   border-radius: var(--r-pill);
   border: 1px solid var(--border);
@@ -277,7 +277,7 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.02em; }
   flex: 1;
   border: none;
   background: transparent;
-  font-size: 14px;
+  font-size: 16px; /* Evita auto-zoom no iOS */
   color: var(--text-primary);
   height: 100%;
 }
@@ -384,8 +384,8 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.02em; }
 
 .btn-pay {
   display: flex; align-items: center; gap: 6px;
-  min-height: 38px;
-  padding: 0 14px;
+  min-height: 44px;
+  padding: 0 16px;
   border-radius: var(--r-sm);
   border: 1.5px solid var(--border);
   background: var(--surface);
@@ -456,8 +456,8 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.02em; }
 
 .card-footer-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 0 16px 14px; }
 .btn-edit, .btn-delete {
-  padding: 8px 12px;
-  min-height: 36px;
+  padding: 8px 14px;
+  min-height: 44px;
   border-radius: var(--r-sm);
   border: 1px solid var(--border);
   font-size: 12px;
@@ -533,7 +533,20 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.02em; }
   transition: var(--transition);
   -webkit-appearance: none;
   appearance: none;
+  font-size: 16px; /* Evita auto-zoom no iOS */
 }
+
+.form-input-sm {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  transition: var(--transition);
+  font-size: 16px;
+}
+.form-input-sm:focus { border-color: var(--border-focus); background: var(--surface); }
 .form-input:focus, .form-select:focus { border-color: var(--border-focus); background: var(--surface); box-shadow: 0 0 0 3px rgba(91, 191, 154, 0.15); }
 
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

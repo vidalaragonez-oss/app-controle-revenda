@@ -730,30 +730,32 @@ const initiateDelete = (id) => {
   if (!b) return;
 
   state.pendingDeleteId = id;
-  const groupCount = b.groupId ? state.boletos.filter(x => x.groupId === b.groupId).length : 0;
   
-  const container = document.getElementById('confirmActions');
-  container.innerHTML = `
-    <button class="btn-confirm-cancel" id="confirmCancel">Cancelar</button>
-    <button class="btn-confirm-ok" id="confirmOk">Só este</button>
-  `;
-
+  // Filtra quantos do mesmo grupo NÃO estão deletados
+  const groupBoletos = b.groupId ? state.boletos.filter(x => x.groupId === b.groupId && !x.deleted) : [];
+  const groupCount = groupBoletos.length;
+  
+  const btnOk = document.getElementById('confirmOk');
+  const btnAll = document.getElementById('confirmAll');
   const msg = document.getElementById('confirmMsg');
+  const overlay = document.getElementById('confirmOverlay');
+
   if (groupCount > 1) {
-    msg.innerHTML = `Este boleto faz parte de um grupo de <strong>${groupCount} parcelas</strong>.<br>O que deseja excluir?`;
-    const btnAll = document.createElement('button');
-    btnAll.className = 'btn-confirm-all';
-    btnAll.textContent = `Todas as ${groupCount}`;
-    btnAll.onclick = () => confirmActionDelete(true);
-    container.appendChild(btnAll);
+    msg.innerHTML = `Este boleto tem <strong>${groupCount} parcelas</strong> ativas no sistema.<br>O que deseja excluir?`;
+    btnOk.textContent = 'Só esta';
+    btnAll.style.display = 'block';
   } else {
-    msg.innerHTML = `Excluir o boleto <strong>"${escapeHTML(b.nome)}"</strong>?`;
-    document.getElementById('confirmOk').textContent = 'Excluir';
+    msg.innerHTML = `Deseja realmente excluir o boleto <strong>"${escapeHTML(b.nome)}"</strong>?`;
+    btnOk.textContent = 'Excluir';
+    btnAll.style.display = 'none';
   }
 
-  document.getElementById('confirmOk').onclick = () => confirmActionDelete(false);
-  document.getElementById('confirmCancel').onclick = () => document.getElementById('confirmOverlay').classList.remove('open');
-  document.getElementById('confirmOverlay').classList.add('open');
+  // Define as ações
+  btnOk.onclick = () => confirmActionDelete(false);
+  btnAll.onclick = () => confirmActionDelete(true);
+  document.getElementById('confirmCancel').onclick = () => overlay.classList.remove('open');
+  
+  overlay.classList.add('open');
 };
 
 const confirmActionDelete = (deleteAllGroup) => {
