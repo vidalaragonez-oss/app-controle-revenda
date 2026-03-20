@@ -306,7 +306,27 @@ const smartMerge = (local, remote) => {
   remote.forEach(mergeItem);
   local.forEach(mergeItem);
 
-  return Array.from(map.values());
+  const byId = Array.from(map.values());
+  
+  // Segunda passagem: Buscar duplicatas por CONTEÚDO (mesmo nome, valor, parcela, etc)
+  const contentMap = new Map();
+  byId.forEach(item => {
+    // Ignora boletos deletados na comparação de conteúdo para não impedir restauração ou sincronização
+    if (item.deleted) {
+      contentMap.set(item.id, item); // Mantém tombstones pelo ID
+      return;
+    }
+    
+    // Chave única baseada no conteúdo
+    const contentKey = `${item.nome}|${item.dia}|${item.mes}|${item.valor}|${item.parcelaAtual}|${item.parcelaTotal}|${item.conta}`.toLowerCase().trim();
+    const existing = contentMap.get(contentKey);
+    
+    if (!existing || (item.updatedAt || 0) > (existing.updatedAt || 0)) {
+      contentMap.set(contentKey, item);
+    }
+  });
+
+  return Array.from(contentMap.values());
 };
 
 const copySyncId = () => {
@@ -862,8 +882,8 @@ const seedData = (force = false) => {
   if (state.boletos.length > 0 && !force) return;
 
   const mk = (dia, mes, valor, nome, pA, pT, conta, pago, itens, gId = null) => ({
-    id: generateUID(),
-    groupId: gId || generateUID(),
+    id: `seed-${nome}-${pA}-${pT}`.toLowerCase().replace(/\s+/g, '-'),
+    groupId: gId || `seed-group-${nome}`.toLowerCase().replace(/\s+/g, '-'),
     dia, mes, valor, nome,
     parcelaAtual: String(pA), parcelaTotal: String(pT),
     conta, pago: !!pago, itens,
@@ -871,11 +891,19 @@ const seedData = (force = false) => {
   });
 
   const G = {
-    irmaoGisele: generateUID(), valeria: generateUID(), alex: generateUID(),
-    giovBeatrizFa: generateUID(), giovFaGiseleAline: generateUID(),
-    faArag: generateUID(), giseleDeise: generateUID(), giovGabriela: generateUID(),
-    faDeise2: generateUID(), gabrielaRose: generateUID(), faDeise3: generateUID(),
-    aline: generateUID(), gabrielaNina: generateUID()
+    irmaoGisele: 'seed-irmao-gisele', 
+    valeria: 'seed-valeria', 
+    alex: 'seed-alex',
+    giovBeatrizFa: 'seed-giov-beatriz-fa', 
+    giovFaGiseleAline: 'seed-giov-fa-gisele-aline',
+    faArag: 'seed-fa-arag', 
+    giseleDeise: 'seed-gisele-deise', 
+    giovGabriela: 'seed-giov-gabriela',
+    faDeise2: 'seed-fa-deise-2', 
+    gabrielaRose: 'seed-gabriela-rose', 
+    faDeise3: 'seed-fa-deise-3',
+    aline: 'seed-aline', 
+    gabrielaNina: 'seed-gabriela-nina'
   };
 
   state.boletos = [
