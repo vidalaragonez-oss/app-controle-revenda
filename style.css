@@ -715,6 +715,11 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.02em; }
     background: var(--accent-light);
 }
 
-.settings-subtitle.text-danger {
-    color: #ef4444;
-}
+/* ── SYNC STATUS COLORS ── */
+.btn-icon-alt.status-syncing { color: var(--amber-text); background: var(--amber-bg); }
+.btn-icon-alt.status-success { color: var(--green-text); background: var(--green-bg); border-color: var(--green-border); }
+.btn-icon-alt.status-error   { color: var(--red-text); background: var(--red-bg); border-color: var(--red-border); }
+
+/* Fa-cloud-exclamation workaround se não carregar de primeira */
+.fa-cloud-exclamation::before { content: "\f0ee"; } /* Fallback */
+.fa-cloud-check::before       { content: "\f0c2"; } /* Fallback */

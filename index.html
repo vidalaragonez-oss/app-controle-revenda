@@ -215,18 +215,24 @@
       </div>
       <div class="modal-body">
         <div class="settings-section">
-          <h3 class="settings-subtitle"><i class="fa-solid fa-cloud"></i> Sincronização Inteligente</h3>
-          <p class="settings-desc">Sua conta já está conectada. Todos os seus dados são sincronizados automaticamente em todos os seus dispositivos.</p>
-          <div class="form-group" style="opacity: 0.7; font-size: 0.8em; margin-top: 15px;">
-            <label for="pantryId" class="form-label">Chave Servidora (Uso Avançado)</label>
+          <h3 class="settings-subtitle"><i class="fa-solid fa-cloud"></i> Sincronização em Nuvem</h3>
+          <p class="settings-desc">Para sincronizar entre aparelhos (Vercel/Celular), ative sua conta gratuita no <strong><a href="https://getpantry.cloud" target="_blank" style="color:var(--accent-dark)">Pantry Cloud</a></strong> e cole sua ID abaixo.</p>
+          
+          <div class="form-group">
+            <label for="pantryId" class="form-label">Minha Chave de Sincronização</label>
             <div class="sync-input-group">
-              <input class="form-input" type="text" id="pantryId" readonly style="background: var(--bg-body); cursor: default;">
-              <button class="btn-icon-copy" id="btnCopySyncId" title="Copiar Chave">
-                <i class="fa-solid fa-copy"></i>
+              <input class="form-input" type="text" id="pantryId" placeholder="Cole sua ID do Pantry aqui...">
+              <button class="btn-icon-copy" id="btnCopySyncId" title="Copiar Link de Vínculo">
+                <i class="fa-solid fa-link"></i>
               </button>
             </div>
+            <p style="font-size:10px; color:var(--text-muted); margin-top:6px;">💡 Dica: Cole a ID, salve, e use o botão 🔗 para enviar um link de configuração rápida para seu celular.</p>
           </div>
-          <button class="btn-submit" id="btnSyncManual">Sincronizar Manualmente Agora</button>
+          
+          <div style="display:flex; gap:10px">
+            <button class="btn-submit" id="btnSavePantry" style="flex:2; margin-top:0">Salvar Chave</button>
+            <button class="btn-secondary" id="btnSyncManual" style="flex:1"><i class="fa-solid fa-rotate"></i> Sync</button>
+          </div>
         </div>
 
         <div class="settings-divider"></div>

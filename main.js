@@ -18,7 +18,8 @@ let state = {
   boletos: [],
   currentMonth: new Date().getMonth(),
   pendingDeleteId: null,
-  searchQuery: ''
+  searchQuery: '',
+  syncStatus: 'idle' // 'idle', 'syncing', 'success', 'error'
 };
 
 // ── UTILS ──
@@ -206,16 +207,27 @@ const addClientToForm = (name) => {
  * @param {boolean} push Se true, envia local para nuvem. Se false, puxa da nuvem para local.
  */
 const syncWithCloud = async (pantryId, push = true) => {
-  if (!pantryId) return;
+  if (!pantryId || pantryId.includes('dummy') || pantryId.includes('automatic')) {
+    updateSyncStatus('idle');
+    return false;
+  }
+  
   const url = `https://getpantry.cloud/apiv1/pantry/${pantryId}/basket/boletos`;
+  updateSyncStatus('syncing');
 
   try {
     // 1. Sempre Puxar primeiro para mesclar (evita sobrescrever dados de outros aparelhos)
     const res = await fetch(url);
     let remoteBoletos = [];
+    
     if (res.ok) {
       const data = await res.json();
       remoteBoletos = (data.boletos && Array.isArray(data.boletos)) ? data.boletos : [];
+    } else if (res.status === 400 || res.status === 404) {
+      // Se não existe a cesta, tratamos como vazio em vez de erro fatal no pull
+      console.warn('Cesta não encontrada, será criada no primeiro push.');
+    } else {
+      throw new Error(`Erro API: ${res.status}`);
     }
 
     // 2. Mesclagem Inteligente (Smart Merge)
@@ -227,20 +239,53 @@ const syncWithCloud = async (pantryId, push = true) => {
 
     // 3. Se for um PUSH ou se houve mudanças na mesclagem, envia para a nuvem
     if (push || hasChanges) {
-      await fetch(url, {
+      const saveRes = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ boletos: state.boletos, lastUpdate: Date.now() })
       });
+      if (!saveRes.ok) throw new Error('Falha ao salvar na nuvem');
       console.log('☁️ Sync: Dados sincronizados e mesclados com a nuvem');
     } else {
       console.log('☁️ Sync: Dados locais já estão atualizados');
     }
     
+    updateSyncStatus('success');
     return true;
   } catch (err) {
     console.error('Erro na sincronização:', err);
+    updateSyncStatus('error');
     return false;
+  }
+};
+
+/**
+ * Atualiza o ícone e texto de status da nuvem
+ */
+const updateSyncStatus = (status) => {
+  state.syncStatus = status;
+  const btn = document.getElementById('btnSync');
+  const icon = btn?.querySelector('i');
+  if (!icon) return;
+
+  icon.className = 'fa-solid';
+  btn.classList.remove('status-syncing', 'status-success', 'status-error');
+
+  switch (status) {
+    case 'syncing':
+      icon.classList.add('fa-rotate', 'fa-spin');
+      btn.classList.add('status-syncing');
+      break;
+    case 'success':
+      icon.classList.add('fa-cloud-check');
+      btn.classList.add('status-success');
+      break;
+    case 'error':
+      icon.classList.add('fa-cloud-exclamation');
+      btn.classList.add('status-error');
+      break;
+    default:
+      icon.classList.add('fa-cloud');
   }
 };
 
@@ -266,12 +311,17 @@ const smartMerge = (local, remote) => {
 
 const copySyncId = () => {
   const idInput = document.getElementById('pantryId');
-  if (!idInput || !idInput.value) {
-    showToast('⚠️ Insira um ID primeiro.');
+  if (!idInput || !idInput.value || idInput.value.includes('automatic')) {
+    showToast('⚠️ Configure uma Chave válida primeiro.');
     return;
   }
-  navigator.clipboard.writeText(idInput.value).then(() => {
-    showToast('📋 ID copiado! Envie para o outro dispositivo.');
+  
+  // Gera link completo para facilitar o vínculo
+  const url = new URL(window.location.href);
+  url.searchParams.set('pantryId', idInput.value);
+  
+  navigator.clipboard.writeText(url.toString()).then(() => {
+    showToast('🔗 Link de vínculo copiado! Abra este link no outro aparelho.');
   });
 };
 
@@ -948,14 +998,25 @@ const seedData = (force = false) => {
 const init = async () => {
   // 1. Carrega localmente primeiro
   loadData();
+
+  // 1b. Verifica se há ID na URL (vínculo rápido)
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlPantryId = urlParams.get('pantryId');
+  if (urlPantryId) {
+    localStorage.setItem(CONFIG.pantryKey, urlPantryId);
+    // Limpa a URL para não ficar "suja"
+    window.history.replaceState({}, document.title, window.location.pathname);
+    showToast('✅ Nuvem vinculada via Link!');
+  }
   
   // 2. Sincronização Automática Total
-  // Usa o ID configurado ou o ID estável padrão
-  const pId = localStorage.getItem(CONFIG.pantryKey) || CONFIG.defaultPantryId;
+  const pId = localStorage.getItem(CONFIG.pantryKey);
   
-  const pulled = await syncWithCloud(pId, false);
-  if (pulled) {
-    console.log('✨ Inicialização: Dados sincronizados automaticamente.');
+  if (pId) {
+     const pulled = await syncWithCloud(pId, false);
+     if (pulled) console.log('✨ Inicialização: Dados sincronizados automaticamente.');
+  } else {
+     updateSyncStatus('idle');
   }
 
   // 3. Verifica se precisa de Seed (apenas se estiver VAZIO total)
@@ -1003,11 +1064,17 @@ const init = async () => {
   // Define o listener para ambos os botões de sync (um na header e um nas configs)
   document.querySelectorAll('#btnSync, #btnSyncManual').forEach(btn => {
     btn.onclick = async () => {
-      const pIdSync = localStorage.getItem(CONFIG.pantryKey) || CONFIG.defaultPantryId;
+      const pIdSync = localStorage.getItem(CONFIG.pantryKey);
+      if (!pIdSync) {
+        showToast('⚠️ Nuvem não configurada. Vá em Configurações.');
+        openSettings();
+        return;
+      }
       showToast('☁️ Sincronizando...');
-      await syncWithCloud(pIdSync, false); // Puxa o mais recente
+      await syncWithCloud(pIdSync, false); 
       renderAll();
-      showToast('🔄 Sincronizado com a nuvem!');
+      if (state.syncStatus === 'success') showToast('🔄 Sincronizado com a nuvem!');
+      else showToast('❌ Falha na sincronização. Verifique sua chave.');
     };
   });
   document.getElementById('btnCloseSettings').onclick = closeModal;
@@ -1015,7 +1082,7 @@ const init = async () => {
   document.getElementById('btnImport').onclick = () => document.getElementById('importFile').click();
   document.getElementById('importFile').onchange = importData;
   document.getElementById('btnResetAll').onclick = resetAllData;
-  // document.getElementById('btnSavePantry').onclick = savePantryConfig; // Botão removido na versão automática
+  document.getElementById('btnSavePantry').onclick = savePantryConfig;
   document.getElementById('btnCopySyncId').onclick = copySyncId;
 
   // Listeners do Filtro (Pop-up)
